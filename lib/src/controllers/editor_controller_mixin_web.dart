@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html;
-import 'dart:ui' as ui;
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
+import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:flutter_rte/src/controllers/editor_controller.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -24,7 +24,7 @@ mixin PlatformSpecificMixin {
       throw Exception('webview controller does not exist on web.');
 
   ///
-  StreamSubscription<html.MessageEvent>? _eventSub;
+  StreamSubscription<web.MessageEvent>? _eventSub;
 
   ///
   HtmlEditorController? _c;
@@ -48,26 +48,26 @@ mixin PlatformSpecificMixin {
     }
     data['view'] = viewId;
     var json = jsonEncoder.convert(data);
-    html.window.postMessage(json, '*');
+    web.window.postMessage(json.toJS, '*'.toJS);
   }
 
   ///
   Future<void> init(
       BuildContext initBC, double initHeight, HtmlEditorController c) async {
     await _eventSub?.cancel();
-    _eventSub = html.window.onMessage.listen((event) {
-      c.processEvent(event.data);
+    _eventSub = web.window.onMessage.listen((event) {
+      c.processEvent((event.data as JSString).toDart);
     }, onError: (e, s) {
       log('Event stream error: ${e.toString()}');
       log('Stack trace: ${s.toString()}');
     }, onDone: () {
       log('Event stream done.');
     });
-    final iframe = html.IFrameElement()
+    final iframe = web.HTMLIFrameElement()
       ..style.width = '100%'
       ..style.height = '100%'
       // ignore: unsafe_html, necessary to load HTML string
-      ..srcdoc = await c.getInitialContent()
+      ..srcdoc = (await c.getInitialContent()).toJS
       ..style.border = 'none'
       ..style.overflow = 'hidden'
       ..id = viewId
@@ -75,10 +75,9 @@ mixin PlatformSpecificMixin {
         var data = <String, Object>{'type': 'toIframe: initEditor'};
         data['view'] = viewId;
         var jsonStr = jsonEncoder.convert(data);
-        html.window.postMessage(jsonStr, '*');
+        web.window.postMessage(jsonStr.toJS, '*'.toJS);
       });
-    // ignore: undefined_prefixed_name
-    ui.platformViewRegistry.registerViewFactory(viewId, (int viewId) => iframe);
+    ui_web.platformViewRegistry.registerViewFactory(viewId, (int viewId) => iframe);
   }
 
   ///
